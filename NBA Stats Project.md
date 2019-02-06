@@ -1,0 +1,291 @@
+# literate-disco
+Manipulating NBA statistics in R using random forests and decision trees
+# Basketball 2017 - 2018 Data for all players from ESPN
+
+
+# Stat Legend
+
+#GP: Games played
+#GS: Games started
+#MIN: Minutes per game
+#FGM: Field Goals Made per game
+#FGA: Field Goals Attempted per game
+#FG%: Field Goals Percentage per game
+#PPG: Points per game
+#OFFR: Offensive Rebounds per game
+#DEFR: Defensive Rebounds per game
+#3PM: Three-point Field Goals Made per game
+#3PA: Three-point Field Goals Attempted per game
+#3P%: Three-point Field Goals Percentage per game
+#RPG: Rebounds per game
+#APG: Assists per game
+#SPG: Steals per game
+#FTM: Free Throws Made per game
+#FTA: Free Throws Attempted per game
+#FT%: Free Throws Percentage per game
+#BPG: Blocks per game
+#TPG: Turnovers per game
+#FPG: Fouls per game
+#2PM: Two-point Field Goals Made per game
+#2PA: Two-point Field Goals Attempted per game
+#2P%: Two-point Field Goals Percentage per game
+#A/TO: Assist to turnover ratio
+#PER: Player Efficiency Rating
+#PPS: Points Per Shot per game
+#AFG%: Adjusted Field Goal Percentage per game
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## PREDICTING THREE POINTERS MADE
+
+rm(list=ls())
+
+
+library(readxl)
+Basketball <- read_excel("C:/Users/keith/Box/College/Mathematics/Data Science and Machine Learning/Project/Basketball.xlsx")
+
+
+Basketball = Basketball
+
+
+# changing some column names to alphabetical
+
+colnames(Basketball)[colnames(Basketball) == 'A/TO'] <- 'AT'
+colnames(Basketball)[colnames(Basketball) == 'FG%'] <- 'FGP'
+colnames(Basketball)[colnames(Basketball) == '3PM'] <- 'threePM' 
+colnames(Basketball)[colnames(Basketball) == '3PA'] <- 'threePA' 
+colnames(Basketball)[colnames(Basketball) == '3P%'] <- 'threePP' 
+colnames(Basketball)[colnames(Basketball) == 'FT%'] <- 'FTP' 
+colnames(Basketball)[colnames(Basketball) == '2PM'] <- 'twoPM' 
+colnames(Basketball)[colnames(Basketball) == '2P%'] <- 'twoPP' 
+colnames(Basketball)[colnames(Basketball) == '2PA'] <- 'twoPA' 
+colnames(Basketball)[colnames(Basketball) == 'AFG%'] <- 'AFGP'
+
+
+# Taking out player names and postion columns
+
+Basketball.edit = Basketball[,-c(1:2)]  
+
+attach(Basketball.edit)
+
+library(tree)
+
+set.seed(1)
+
+n <- nrow(Basketball.edit)
+p <- ncol(Basketball.edit)
+
+train <- sample(n, 0.8*n)
+
+train_data <-Basketball.edit[train, 1:p]   
+test_data <- Basketball.edit[-train, 1:p] 
+
+
+Basketball.tree.edit = tree(threePM ~ .,data = Basketball.edit, subset = train)
+summary(Basketball.tree.edit)
+plot(Basketball.tree.edit)
+text(Basketball.tree.edit,pretty=0)
+
+
+
+
+#Calculating MSE for three pointers made tree model
+
+#install.packages('MLmetrics')
+library(MLmetrics)
+# MSE (y_pred,y_true)
+
+pred.threePM.tree = predict(Basketball.tree.edit, test_data)
+MSE(pred.threePM.tree,test_data$threePM)
+
+#pruning doesnt seem to be neccesary, number of terminal nodes stays the same
+
+cv.Basketball.tree.edit = cv.tree(Basketball.tree.edit)            
+plot(cv.Basketball.tree.edit$size,cv.Basketball.tree.edit$dev,type='b')  
+best.k <- cv.Basketball.tree.edit$size[which.min(cv.Basketball.tree.edit$dev)]  
+best.k
+
+prune.Basketball.tree.edit=prune.tree(Basketball.tree.edit,best=best.k)
+plot(prune.Basketball.tree.edit)
+text(prune.Basketball.tree.edit,pretty=0)
+
+#Calculating MSE for three pointers made prune tree model
+
+pred.threePM.prunetree = predict(Basketball.tree.edit, test_data)
+MSE(pred.threePM.prunetree,test_data$threePM)
+
+
+#random forest for three pointers made
+
+
+#install.packages("randomForest")
+library(randomForest)
+
+sqrt(26) # number of predictors that need to be used for random forest
+
+bag.Basketball.tree.edit<- randomForest(threePM ~ ., 
+                            data=Basketball.edit,
+                            ntree=500,
+                            mtry=sqrt(26))
+
+bag.Basketball.tree.edit
+
+importance(bag.Basketball.tree.edit)
+varImpPlot(bag.Basketball.tree.edit)
+
+#Calculating MSE for three pointers made for random forest model 
+
+pred.rf.threePM = predict(bag.Basketball.tree.edit,test_data)
+MSE(pred.rf.threePM,test_data$threePM)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# PREDICTING PLAYER POSITION
+
+
+
+rm(list=ls())
+
+
+library(readxl)
+Basketball <- read_excel("C:/Users/keith/Box/College/Mathematics/Data Science and Machine Learning/Project/Basketball.xlsx")
+
+
+Basketball = Basketball
+
+
+# changing some column names to alphabetical
+
+colnames(Basketball)[colnames(Basketball) == 'A/TO'] <- 'AT'
+colnames(Basketball)[colnames(Basketball) == 'FG%'] <- 'FGP'
+colnames(Basketball)[colnames(Basketball) == '3PM'] <- 'threePM' 
+colnames(Basketball)[colnames(Basketball) == '3PA'] <- 'threePA' 
+colnames(Basketball)[colnames(Basketball) == '3P%'] <- 'threePP' 
+colnames(Basketball)[colnames(Basketball) == 'FT%'] <- 'FTP' 
+colnames(Basketball)[colnames(Basketball) == '2PM'] <- 'twoPM' 
+colnames(Basketball)[colnames(Basketball) == '2P%'] <- 'twoPP' 
+colnames(Basketball)[colnames(Basketball) == '2PA'] <- 'twoPA' 
+colnames(Basketball)[colnames(Basketball) == 'AFG%'] <- 'AFGP'
+
+
+# Taking out player names
+Basketball.editPP = Basketball[,-1]
+
+#Changing Positions to numbers
+
+Position.edit = ifelse(Position == "PG",1,ifelse(Position == "SG",2,ifelse(Position == "G",3,
+ifelse(Position== "PF",4,ifelse(Position == "SF",5,ifelse(Position == "F",6,7))))))
+
+# 1 to 3 is the Guard range (1 = PointGuard, 2 = ShootingGuard, 3 = Guard)
+# 4 to 6 is the Foward range (4 = PowardFoward, 5 = SmallFoward, 6 = Foward)
+# 6 to 7 is the Center range 
+
+set.seed(1)
+
+Basketball.editPP = data.frame(Basketball.editPP,Position.edit)
+attach(Basketball.editPP)
+
+n <- nrow(Basketball.editPP)
+p <- ncol(Basketball.editPP)
+
+train <- sample(n, 0.8*n)
+
+train_data <-Basketball.editPP[train, 1:p]   
+test_data <- Basketball.editPP[-train, 1:p] 
+
+Basketball.editPP = Basketball.editPP
+
+
+Basketball.editPP.tree  = tree(Position.edit ~ .-Position,data = Basketball.editPP, subset = train)
+summary(Basketball.editPP.tree)
+plot(Basketball.editPP.tree)
+text(Basketball.editPP.tree,pretty=0)
+
+#Calculating MSE for for player position from tree model
+
+pred.Position = predict(Basketball.editPP.tree, test_data)
+MSE(pred.Position,test_data$Position.edit)
+
+#Pruning the tree for predicting player position
+
+cv.Basketball.editPP.tree = cv.tree(Basketball.editPP.tree)            
+plot(cv.Basketball.editPP.tree$size,cv.Basketball.editPP.tree$dev,type='b')  
+best.k <- cv.Basketball.editPP.tree$size[which.min(cv.Basketball.editPP.tree$dev)]  
+best.k
+
+prune.Basketball.editPP = prune.tree(Basketball.editPP.tree ,best=best.k)
+plot(prune.Basketball.editPP)
+text(prune.Basketball.editPP,pretty=0)
+
+#Calculating MSE for for player position from prune tree model
+
+pred.Position.prune = predict(prune.Basketball.editPP, test_data)
+MSE(pred.Position.prune,test_data$Position.edit)
+
+#Random Forest for predicting player poistion
+
+#install.packages("randomForest")
+library(randomForest)
+
+sqrt(28) # number of predictors that need to be used for random forest
+
+bag.Basketball.editPP<- randomForest(Position.edit ~ .-Position, 
+                                        data=Basketball.editPP,
+                                        ntree=500,
+                                        mtry=sqrt(28))
+
+bag.Basketball.editPP
+
+importance(bag.Basketball.editPP)
+varImpPlot(bag.Basketball.editPP)
+
+pred.rf.Position = predict(bag.Basketball.editPP,test_data)
+MSE(pred.rf.Position,test_data$Position.edit)
+
+
+
+
+
+
+
+
+
+
